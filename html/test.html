@@ -13,9 +13,54 @@
         canvas {
             display: block;
         }
+        #planet-label {
+            position: absolute;
+            color: white;
+            padding: 5px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+            display: none;
+        }
+        #info-panel {
+            position: absolute;
+            top: 10%;
+            right: 0;
+            width: 400px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+        #info-panel h2 {
+            margin-top: 0;
+        }
+        .button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
+    <div id="planet-label"></div> <!-- Planet hover label -->
+    <div id="info-panel">
+        <h2 id="planet-name">Planet Name</h2>
+        <p id="planet-info">Distance from Sun: <span id="planet-distance"></span></p>
+        <p>Size: <span id="planet-size"></span></p>
+        <a id="wiki-link" class="button" target="_blank">Learn More (Wikipedia)</a>
+        <a id="other-link" class="button" target="_blank">Visit More Info</a>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js"></script>
@@ -33,7 +78,7 @@
         const pointLight = new THREE.PointLight(0xffffff, 1, 100);
         scene.add(pointLight);
 
-        // إضافة الشمس بدون تأثير التوهج
+        // إزالة تأثير التوهج (لا يوجد توهج الآن)
         const sunGeometry = new THREE.SphereGeometry(1, 32, 32);
         const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
         const sun = new THREE.Mesh(sunGeometry, sunMaterial);
@@ -41,15 +86,15 @@
 
         // إعداد الكواكب
         const planets = [
-            { name: "Mercury", color: 0xaaaaaa, size: 0.2, distance: 2, speed: 0.01 },
-            { name: "Venus", color: 0xffcc00, size: 0.4, distance: 3, speed: 0.008 },
-            { name: "Earth", color: 0x0000ff, size: 0.5, distance: 4, speed: 0.005 },
-            { name: "Mars", color: 0xff0000, size: 0.3, distance: 5, speed: 0.003 },
-            { name: "Jupiter", color: 0xffcc00, size: 0.8, distance: 6, speed: 0.002 },
-            { name: "Saturn", color: 0xc0c0c0, size: 0.7, distance: 7, speed: 0.001 },
-            { name: "Uranus", color: 0x00ffff, size: 0.6, distance: 8, speed: 0.0005 },
-            { name: "Neptune", color: 0x0000cc, size: 0.5, distance: 9, speed: 0.0004 },
-            { name: "Pluto", color: 0xcccccc, size: 0.2, distance: 10, speed: 0.0003 }
+            { name: "Mercury", color: 0xaaaaaa, size: 0.2, distance: 2, speed: 0.01, wiki: "https://en.wikipedia.org/wiki/Mercury_(planet)", moreInfo: "https://solarsystem.nasa.gov/planets/mercury/overview/" },
+            { name: "Venus", color: 0xffcc00, size: 0.4, distance: 3, speed: 0.008, wiki: "https://en.wikipedia.org/wiki/Venus", moreInfo: "https://solarsystem.nasa.gov/planets/venus/overview/" },
+            { name: "Earth", color: 0x0000ff, size: 0.5, distance: 4, speed: 0.005, wiki: "https://en.wikipedia.org/wiki/Earth", moreInfo: "https://solarsystem.nasa.gov/planets/earth/overview/" },
+            { name: "Mars", color: 0xff0000, size: 0.3, distance: 5, speed: 0.003, wiki: "https://en.wikipedia.org/wiki/Mars", moreInfo: "https://solarsystem.nasa.gov/planets/mars/overview/" },
+            { name: "Jupiter", color: 0xffcc00, size: 0.8, distance: 6, speed: 0.002, wiki: "https://en.wikipedia.org/wiki/Jupiter", moreInfo: "https://solarsystem.nasa.gov/planets/jupiter/overview/" },
+            { name: "Saturn", color: 0xc0c0c0, size: 0.7, distance: 7, speed: 0.001, wiki: "https://en.wikipedia.org/wiki/Saturn", moreInfo: "https://solarsystem.nasa.gov/planets/saturn/overview/" },
+            { name: "Uranus", color: 0x00ffff, size: 0.6, distance: 8, speed: 0.0005, wiki: "https://en.wikipedia.org/wiki/Uranus", moreInfo: "https://solarsystem.nasa.gov/planets/uranus/overview/" },
+            { name: "Neptune", color: 0x0000cc, size: 0.5, distance: 9, speed: 0.0004, wiki: "https://en.wikipedia.org/wiki/Neptune", moreInfo: "https://solarsystem.nasa.gov/planets/neptune/overview/" },
+            { name: "Pluto", color: 0xcccccc, size: 0.2, distance: 10, speed: 0.0003, wiki: "https://en.wikipedia.org/wiki/Pluto", moreInfo: "https://solarsystem.nasa.gov/planets/dwarf-planets/pluto/overview/" }
         ];
 
         const planetMeshes = [];
@@ -64,6 +109,7 @@
             const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
             const material = new THREE.MeshStandardMaterial({ color: planet.color, metalness: 0.5, roughness: 0.5 });
             const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData = { name: planet.name, distance: planet.distance, size: planet.size, wiki: planet.wiki, moreInfo: planet.moreInfo }; // Store planet data
             scene.add(mesh);
             planetMeshes.push({ mesh, angle: 0, distance: planet.distance, speed: planet.speed });
         });
@@ -101,10 +147,16 @@
             camera.position.z = value;
         });
 
-        // دالة عرض المعلومات عند النقر على الكواكب
-        function showPlanetInfo(planet) {
-            alert(`كوكب: ${planet.name}\nالمسافة من الشمس: ${planet.distance} وحدات\nالقطر: ${planet.size * 2} وحدات`);
-        }
+        // Label for displaying planet names on hover
+        const planetLabel = document.getElementById('planet-label');
+
+        // Panel for planet info
+        const infoPanel = document.getElementById('info-panel');
+        const planetName = document.getElementById('planet-name');
+        const planetDistance = document.getElementById('planet-distance');
+        const planetSize = document.getElementById('planet-size');
+        const wikiLink = document.getElementById('wiki-link');
+        const otherLink = document.getElementById('other-link');
 
         // دالة التحديث المستمر
         function animate() {
@@ -121,22 +173,52 @@
         }
         animate();
 
-        // إضافة حدث النقر على الكواكب
-        planetMeshes.forEach(planet => {
-            planet.mesh.userData = { name: planet.name };
+        // اكتشاف النقرات
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // إضافة حدث تحريك الفأرة للكشف عن الكواكب وعرض الاسم عند التحويم
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(planetMeshes.map(p => p.mesh));
+
+            if (intersects.length > 0) {
+                const planet = intersects[0].object.userData;
+                planetLabel.style.display = 'block';
+                planetLabel.style.left = `${event.clientX + 10}px`;
+                planetLabel.style.top = `${event.clientY - 20}px`;
+                planetLabel.textContent = planet.name;
+            } else {
+                planetLabel.style.display = 'none';
+            }
         });
 
-        // اكتشاف النقرات
+        // إضافة حدث النقر على الكواكب
         window.addEventListener('click', (event) => {
-            const mouse = new THREE.Vector2();
-            const raycaster = new THREE.Raycaster();
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(planetMeshes.map(p => p.mesh));
             if (intersects.length > 0) {
                 const planet = intersects[0].object.userData;
-                showPlanetInfo(planet);
+
+                // Zoom in to the clicked planet
+                const zoomPosition = new THREE.Vector3(planet.distance * Math.cos(0), 0, planet.distance * Math.sin(0));
+                controls.target.copy(zoomPosition);
+                camera.position.set(zoomPosition.x, zoomPosition.y + 1, zoomPosition.z + 2);
+                controls.update();
+
+                // Show planet info in panel
+                planetName.textContent = planet.name;
+                planetDistance.textContent = planet.distance;
+                planetSize.textContent = planet.size;
+                wikiLink.href = planet.wiki;
+                otherLink.href = planet.moreInfo;
+
+                infoPanel.style.display = 'block';
             }
         });
 
