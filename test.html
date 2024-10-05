@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Project - Interactive Solar System</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle, #001133, #000000);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #planet-label {
+            position: absolute;
+            color: white;
+            padding: 5px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+            display: none;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 10%;
+            right: 0;
+            width: 400px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        #info-panel h2 {
+            margin-top: 0;
+        }
+
+        .button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="planet-label"></div>
+
+    <div id="info-panel">
+        <h2 id="planet-name">Object Name</h2>
+        <p id="planet-info">Distance from Sun: <span id="planet-distance"></span> million km</p>
+        <p>Size: <span id="planet-size"></span> km in diameter</p>
+        <a id="wiki-link" class="button" target="_blank">Learn More (Wikipedia)</a>
+        <a id="other-link" class="button" target="_blank">Visit More Info</a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const light = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(light);
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        scene.add(pointLight);
+
+        // Adding the Sun (handled as a planet for the info panel)
+        const sunGeometry = new THREE.SphereGeometry(1, 32, 32);
+        const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.userData = {
+            name: "Sun",
+            realDistance: 0,
+            realSize: 1392000,
+            wiki: "https://en.wikipedia.org/wiki/Sun",
+            moreInfo: "https://solarsystem.nasa.gov/solar-system/sun/overview/"
+        };
+        scene.add(sun);
+
+        const planets = [
+            { name: "Mercury", color: 0xaaaaaa, size: 4879, distance: 57.9, scaledSize: 0.2, scaledDistance: 2, speed: 0.01, wiki: "https://en.wikipedia.org/wiki/Mercury_(planet)", moreInfo: "https://solarsystem.nasa.gov/planets/mercury/overview/" },
+            { name: "Venus", color: 0xffcc00, size: 12104, distance: 108.2, scaledSize: 0.4, scaledDistance: 3, speed: 0.008, wiki: "https://en.wikipedia.org/wiki/Venus", moreInfo: "https://solarsystem.nasa.gov/planets/venus/overview/" },
+            { name: "Earth", color: 0x0000ff, size: 12742, distance: 149.6, scaledSize: 0.5, scaledDistance: 4, speed: 0.005, wiki: "https://en.wikipedia.org/wiki/Earth", moreInfo: "https://solarsystem.nasa.gov/planets/earth/overview/" },
+            { name: "Mars", color: 0xff0000, size: 6779, distance: 227.9, scaledSize: 0.3, scaledDistance: 5, speed: 0.003, wiki: "https://en.wikipedia.org/wiki/Mars", moreInfo: "https://solarsystem.nasa.gov/planets/mars/overview/" },
+            { name: "Jupiter", color: 0xffcc00, size: 139820, distance: 778.5, scaledSize: 0.8, scaledDistance: 6, speed: 0.002, wiki: "https://en.wikipedia.org/wiki/Jupiter", moreInfo: "https://solarsystem.nasa.gov/planets/jupiter/overview/" },
+            { name: "Saturn", color: 0xc0c0c0, size: 116460, distance: 1434, scaledSize: 0.7, scaledDistance: 7, speed: 0.001, wiki: "https://en.wikipedia.org/wiki/Saturn", moreInfo: "https://solarsystem.nasa.gov/planets/saturn/overview/" },
+            { name: "Uranus", color: 0x00ffff, size: 50724, distance: 2871, scaledSize: 0.6, scaledDistance: 8, speed: 0.0005, wiki: "https://en.wikipedia.org/wiki/Uranus", moreInfo: "https://solarsystem.nasa.gov/planets/uranus/overview/" },
+            { name: "Neptune", color: 0x0000cc, size: 49244, distance: 4495, scaledSize: 0.5, scaledDistance: 9, speed: 0.0004, wiki: "https://en.wikipedia.org/wiki/Neptune", moreInfo: "https://solarsystem.nasa.gov/planets/neptune/overview/" },
+            { name: "Pluto", color: 0xcccccc, size: 2376, distance: 5906, scaledSize: 0.2, scaledDistance: 10, speed: 0.0003, wiki: "https://en.wikipedia.org/wiki/Pluto", moreInfo: "https://solarsystem.nasa.gov/planets/dwarf-planets/pluto/overview/" }
+        ];
+
+        const planetMeshes = planets.map(planet => {
+            const orbit = createOrbit(planet.scaledDistance);
+            scene.add(orbit);
+
+            const geometry = new THREE.SphereGeometry(planet.scaledSize, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ color: planet.color });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData = {
+                name: planet.name,
+                realDistance: planet.distance,
+                realSize: planet.size,
+                wiki: planet.wiki,
+                moreInfo: planet.moreInfo
+            };
+            scene.add(mesh);
+            return { mesh, angle: 0, scaledDistance: planet.scaledDistance, speed: planet.speed };
+        });
+
+        function createOrbit(radius) {
+            const points = [];
+            const segments = 64;
+            for (let i = 0; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                points.push(new THREE.Vector3(radius * Math.cos(angle), 0, radius * Math.sin(angle)));
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0x888888 });
+            return new THREE.LineLoop(geometry, material);
+        }
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableZoom = true;
+        controls.minDistance = 1;
+        controls.maxDistance = 20;
+
+        camera.position.set(5, 5, 10);
+        controls.update();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            planetMeshes.forEach(planet => {
+                planet.angle += planet.speed;
+                planet.mesh.position.x = planet.scaledDistance * Math.cos(planet.angle);
+                planet.mesh.position.z = planet.scaledDistance * Math.sin(planet.angle);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Raycaster for planet interaction
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const planetLabel = document.getElementById('planet-label');
+        const infoPanel = document.getElementById('info-panel');
+        const planetNameElement = document.getElementById('planet-name');
+        const planetDistanceElement = document.getElementById('planet-distance');
+        const planetSizeElement = document.getElementById('planet-size');
+        const wikiLink = document.getElementById('wiki-link');
+        const otherLink = document.getElementById('other-link');
+
+        // Mouse move event for hover effect
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('click', onClick);
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([sun, ...planetMeshes.map(p => p.mesh)]);
+
+            if (intersects.length > 0) {
+                const planet = intersects[0].object;
+                planetLabel.style.display = 'block';
+                planetLabel.style.left = `${event.clientX + 10}px`;
+                planetLabel.style.top = `${event.clientY + 10}px`;
+                planetLabel.textContent = planet.userData.name;
+            } else {
+                planetLabel.style.display = 'none';
+            }
+        }
+
+        // Click event for showing planet information (includes Sun)
+        function onClick(event) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([sun, ...planetMeshes.map(p => p.mesh)]);
+
+            if (intersects.length > 0) {
+                const planet = intersects[0].object;
+                planetNameElement.textContent = planet.userData.name;
+                planetDistanceElement.textContent = planet.userData.realDistance;
+                planetSizeElement.textContent = planet.userData.realSize;
+                wikiLink.href = planet.userData.wiki;
+                otherLink.href = planet.userData.moreInfo;
+                infoPanel.style.display = 'block';
+            } else {
+                infoPanel.style.display = 'none';
+            }
+        }
+
+        // Resize listener for responsiveness
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
