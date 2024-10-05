@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Solar System</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle, #001133, #000000);
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js"></script>
+    <script>
+        // إعداد المشهد والكاميرا
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // إضافة ضوء إلى المشهد
+        const light = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(light);
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        scene.add(pointLight);
+
+        // إضافة الشمس بدون تأثير التوهج
+        const sunGeometry = new THREE.SphereGeometry(1, 32, 32);
+        const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        scene.add(sun);
+
+        // إعداد الكواكب
+        const planets = [
+            { name: "Mercury", color: 0xaaaaaa, size: 0.2, distance: 2, speed: 0.01 },
+            { name: "Venus", color: 0xffcc00, size: 0.4, distance: 3, speed: 0.008 },
+            { name: "Earth", color: 0x0000ff, size: 0.5, distance: 4, speed: 0.005 },
+            { name: "Mars", color: 0xff0000, size: 0.3, distance: 5, speed: 0.003 },
+            { name: "Jupiter", color: 0xffcc00, size: 0.8, distance: 6, speed: 0.002 },
+            { name: "Saturn", color: 0xc0c0c0, size: 0.7, distance: 7, speed: 0.001 },
+            { name: "Uranus", color: 0x00ffff, size: 0.6, distance: 8, speed: 0.0005 },
+            { name: "Neptune", color: 0x0000cc, size: 0.5, distance: 9, speed: 0.0004 },
+            { name: "Pluto", color: 0xcccccc, size: 0.2, distance: 10, speed: 0.0003 }
+        ];
+
+        const planetMeshes = [];
+
+        // إنشاء المدارات وإضافة الكواكب
+        planets.forEach(planet => {
+            // إضافة المدار
+            const orbit = createOrbit(planet.distance);
+            scene.add(orbit);
+
+            // إضافة الكوكب
+            const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ color: planet.color, metalness: 0.5, roughness: 0.5 });
+            const mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+            planetMeshes.push({ mesh, angle: 0, distance: planet.distance, speed: planet.speed });
+        });
+
+        // دالة لإنشاء مدار لكل كوكب
+        function createOrbit(radius) {
+            const points = [];
+            const segments = 64;
+            for (let i = 0; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                points.push(new THREE.Vector3(radius * Math.cos(angle), 0, radius * Math.sin(angle)));
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0x888888, opacity: 0.5, transparent: true, linewidth: 2 });
+            const line = new THREE.LineLoop(geometry, material);
+            return line;
+        }
+
+        // إعداد عناصر التحكم
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.z = 12;
+
+        // إعداد واجهة المستخدم
+        const gui = new dat.GUI();
+        const params = {
+            speed: 0.01, // السرعة العامة
+            zoom: 12
+        };
+        gui.add(params, 'speed', 0, 0.05).onChange((value) => {
+            planetMeshes.forEach(planet => {
+                planet.speed = value; // تعيين السرعة لكل كوكب
+            });
+        });
+        gui.add(params, 'zoom', 1, 20).onChange((value) => {
+            camera.position.z = value;
+        });
+
+        // دالة عرض المعلومات عند النقر على الكواكب
+        function showPlanetInfo(planet) {
+            alert(`كوكب: ${planet.name}\nالمسافة من الشمس: ${planet.distance} وحدات\nالقطر: ${planet.size * 2} وحدات`);
+        }
+
+        // دالة التحديث المستمر
+        function animate() {
+            requestAnimationFrame(animate);
+
+            planetMeshes.forEach(planet => {
+                planet.angle += planet.speed;
+                planet.mesh.position.x = planet.distance * Math.cos(planet.angle);
+                planet.mesh.position.z = planet.distance * Math.sin(planet.angle);
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // إضافة حدث النقر على الكواكب
+        planetMeshes.forEach(planet => {
+            planet.mesh.userData = { name: planet.name };
+        });
+
+        // اكتشاف النقرات
+        window.addEventListener('click', (event) => {
+            const mouse = new THREE.Vector2();
+            const raycaster = new THREE.Raycaster();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(planetMeshes.map(p => p.mesh));
+            if (intersects.length > 0) {
+                const planet = intersects[0].object.userData;
+                showPlanetInfo(planet);
+            }
+        });
+
+        // استجابة لتغيير حجم الشاشة
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
